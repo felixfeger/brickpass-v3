@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MyBrickPass Admin — City Metro</title>
+<style>
+  :root {
+    --cm-black: #14161A;
+    --cm-gray-bg: #F4F5F7;
+    --cm-line: #E1E4E9;
+    --cm-sub: #5B6472;
+    --cm-green: #1E8E5A;
+    --cm-red: #C0392B;
+    --cm-amber: #B8790A;
+    --cm-green-bg: #E9F6EF;
+    --cm-red-bg: #FBEAE8;
+    --cm-amber-bg: #FCF1E0;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Helvetica, Arial, sans-serif; color: var(--cm-black); background: var(--cm-gray-bg); }
+  header { background: var(--cm-black); color: white; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+  header .brand { display: flex; align-items: center; gap: 10px; }
+  header .brand img { width: 28px; height: 28px; border-radius: 6px; background: white; }
+  header .brand .name { font-size: 14px; font-weight: 700; line-height: 1.1; }
+  header .brand .name small { display: block; font-size: 9px; font-weight: 400; color: #9AA3AF; letter-spacing: 0.6px; }
+  header nav a { color: #C7CDD4; text-decoration: none; font-size: 13px; margin-left: 16px; cursor: pointer; }
+  header nav a.active, header nav a:hover { color: white; }
+  #nav-signout { display: none; }
+
+  main { max-width: 780px; margin: 0 auto; padding: 26px 20px 60px; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  h1 { font-size: 19px; margin: 0 0 4px; }
+  p.sub { color: var(--cm-sub); font-size: 13px; margin: 0 0 20px; }
+
+  .panel { background: white; border: 1px solid var(--cm-line); border-radius: 10px; padding: 18px; margin-bottom: 16px; }
+  .panel h2 { font-size: 14px; margin: 0 0 12px; }
+
+  label { display: block; font-size: 12px; color: var(--cm-sub); margin: 10px 0 4px; }
+  label:first-child { margin-top: 0; }
+  input, select {
+    width: 100%; padding: 8px 9px; font-size: 13px;
+    border: 1px solid var(--cm-line); border-radius: 6px; font-family: inherit;
+  }
+  button {
+    background: var(--cm-black); color: white; border: none;
+    padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600;
+    cursor: pointer; margin-top: 14px;
+  }
+  button:hover { background: #2A2E36; }
+  button.secondary { background: white; color: var(--cm-black); border: 1px solid var(--cm-line); }
+  button.secondary:hover { background: var(--cm-gray-bg); }
+  button.danger { background: white; color: var(--cm-red); border: 1px solid var(--cm-red); }
+  button.danger:hover { background: var(--cm-red-bg); }
+  button.small { padding: 5px 10px; font-size: 12px; margin-top: 0; }
+
+  .msg { font-size: 13px; padding: 8px 10px; border-radius: 6px; margin-top: 12px; }
+  .msg.error { background: var(--cm-red-bg); color: var(--cm-red); }
+  .msg.ok { background: var(--cm-green-bg); color: var(--cm-green); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--cm-sub); font-weight: 600; font-size: 11px; padding: 6px 8px; border-bottom: 1px solid var(--cm-line); }
+  td { padding: 8px; border-bottom: 1px solid var(--cm-line); vertical-align: middle; font-family: monospace; }
+  td.nomono { font-family: Helvetica, Arial, sans-serif; }
+  tr:last-child td { border-bottom: none; }
+
+  .status-pill { font-size: 11px; padding: 3px 9px; border-radius: 999px; display: inline-block; font-family: Helvetica, Arial, sans-serif; }
+  .status-pill.in_service, .status-pill.active { background: var(--cm-green-bg); color: var(--cm-green); }
+  .status-pill.out_of_service, .status-pill.blocked, .status-pill.deactivated { background: var(--cm-red-bg); color: var(--cm-red); }
+  .status-pill.lost { background: var(--cm-amber-bg); color: var(--cm-amber); }
+  .status-pill.normal { background: var(--cm-gray-bg); color: var(--cm-black); }
+  .status-pill.free { background: var(--cm-green-bg); color: var(--cm-green); }
+  .status-pill.override { background: var(--cm-amber-bg); color: var(--cm-amber); }
+
+  .row-inline { display: flex; gap: 10px; }
+  .row-inline > * { flex: 1; }
+  .fare-price-input { width: 90px; display: inline-block; }
+  .radio-row { display: flex; gap: 16px; margin-top: 10px; font-size: 13px; }
+  .radio-row label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--cm-black); margin: 0; }
+  .radio-row input[type="radio"] { width: auto; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <img src="https://alerts.citymetro.xyz/logo.png" alt="City Metro" />
+    <div class="name">MyBrickPass Admin<small>CITY METRO — STAFF ONLY</small></div>
+  </div>
+  <nav id="nav">
+    <a onclick="go('cards')">Cards</a>
+    <a onclick="go('fares')">Fares</a>
+    <a onclick="go('ticket-types')">Ticket Types</a>
+    <a onclick="go('special-days')">Special Days</a>
+    <a onclick="go('validators')">Validators</a>
+    <a id="nav-signout" onclick="signOut()">Sign Out</a>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ---------------- SIGN IN ---------------- -->
+  <section id="view-signin" class="view active">
+    <h1>Admin Sign In</h1>
+    <p class="sub">Sign in with a City Metro account that has admin access.</p>
+    <div class="panel">
+      <button onclick="signInWithSSO()">Sign in with City Metro SSO</button>
+      <div id="signin-msg"></div>
+    </div>
+  </section>
+
+  <!-- ---------------- CARDS ---------------- -->
+  <section id="view-cards" class="view">
+    <h1>Cards</h1>
+    <p class="sub">Search, correct, or create BrickPass cards.</p>
+
+    <div class="panel">
+      <label for="card-search">Search by card number or email</label>
+      <div class="row-inline">
+        <input id="card-search" placeholder="BP3542942903 or name@example.com" />
+        <button style="flex:0 0 auto" onclick="searchCards()">Search</button>
+      </div>
+      <table style="margin-top:14px">
+        <thead><tr><th>Card</th><th>Owner</th><th>Balance</th><th>Status</th><th></th></tr></thead>
+        <tbody id="card-search-results"></tbody>
+      </table>
+    </div>
+
+    <div class="panel" id="card-detail" style="display:none">
+      <h2 id="card-detail-title">Card</h2>
+      <div class="row-inline">
+        <div><label for="edit-balance">Balance ($)</label><input id="edit-balance" type="number" step="0.01" /></div>
+        <div>
+          <label for="edit-status">Status</label>
+          <select id="edit-status">
+            <option value="active">Active</option>
+            <option value="deactivated">Deactivated</option>
+            <option value="blocked">Blocked</option>
+            <option value="lost">Lost</option>
+          </select>
+        </div>
+      </div>
+      <div class="row-inline">
+        <div>
+          <label for="edit-pass-type">Pass type</label>
+          <select id="edit-pass-type">
+            <option value="">None</option>
+            <option value="day">Day</option>
+            <option value="week">Weekly</option>
+          </select>
+        </div>
+        <div><label for="edit-pass-expires">Pass expires</label><input id="edit-pass-expires" type="date" /></div>
+      </div>
+      <label for="edit-assigned-email">Assigned email (pre-linked; auto-links when they sign in)</label>
+      <input id="edit-assigned-email" type="email" placeholder="name@example.com" />
+      <button onclick="saveCard()">Save Changes</button>
+      <div id="card-save-msg"></div>
+
+      <h2 style="margin-top:22px">Recent Transactions</h2>
+      <table>
+        <thead><tr><th>When</th><th>Type</th><th>Amount</th><th>Balance After</th><th>Validator</th></tr></thead>
+        <tbody id="card-txns"></tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h2>Create a Card</h2>
+      <p class="sub" style="margin-bottom:12px">Leave the card number blank to generate one, or set it explicitly for a card that's already printed/encoded (format: BP + 10 digits).</p>
+      <label for="new-card-number">Card number (optional)</label>
+      <input id="new-card-number" placeholder="BP3542942903" />
+      <label for="new-card-email">Assign to email (optional)</label>
+      <input id="new-card-email" type="email" placeholder="name@example.com" />
+      <label for="new-card-balance">Starting balance ($)</label>
+      <input id="new-card-balance" type="number" step="0.01" value="0" />
+      <button class="secondary" onclick="createCard()">Create Card</button>
+      <div id="new-card-msg"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Bulk Actions — Applies to ALL Cards</h2>
+      <label for="bulk-amount">Credit every card ($, can be negative)</label>
+      <div class="row-inline">
+        <input id="bulk-amount" type="number" step="0.01" placeholder="5.00" />
+        <button style="flex:0 0 auto" onclick="bulkCredit()">Apply to All</button>
+      </div>
+      <label for="bulk-pass">Grant a pass to every card</label>
+      <div class="row-inline">
+        <select id="bulk-pass"><option value="day">Day Pass</option><option value="week">Weekly Pass</option></select>
+        <button style="flex:0 0 auto" onclick="bulkPass()">Apply to All</button>
+      </div>
+      <div id="bulk-msg"></div>
+    </div>
+  </section>
+
+  <!-- ---------------- FARES ---------------- -->
+  <section id="view-fares" class="view">
+    <h1>Fares</h1>
+    <p class="sub">Standard prices. For temporary pricing, use Special Days or a validator's fare mode instead.</p>
+    <div class="panel">
+      <table><thead><tr><th>Fare</th><th>Price</th><th></th></tr></thead><tbody id="fares-table"></tbody></table>
+    </div>
+  </section>
+
+  <!-- ---------------- TICKET TYPES ---------------- -->
+  <section id="view-ticket-types" class="view">
+    <h1>Ticket Types</h1>
+    <p class="sub">These appear on the customer-facing /tickets purchase page. One-Way and Round-Trip are standard; add your own below.</p>
+
+    <div class="panel">
+      <table><thead><tr><th>Ticket</th><th>Rides</th><th>Price</th><th>Shown</th><th></th></tr></thead><tbody id="ticket-types-table"></tbody></table>
+    </div>
+
+    <div class="panel">
+      <h2>Add a Custom Ticket Type</h2>
+      <label for="tt-id">ID (short slug, e.g. game_day_shuttle)</label>
+      <input id="tt-id" placeholder="game_day_shuttle" />
+      <label for="tt-label">Label (shown to customers)</label>
+      <input id="tt-label" placeholder="Game Day Shuttle" />
+      <div class="row-inline">
+        <div><label for="tt-price">Price ($)</label><input id="tt-price" type="number" step="0.01" /></div>
+        <div><label for="tt-rides">Rides included</label><input id="tt-rides" type="number" min="1" value="1" /></div>
+      </div>
+      <button onclick="createTicketType()">Save Ticket Type</button>
+      <div id="tt-msg"></div>
+    </div>
+  </section>
+
+  <!-- ---------------- SPECIAL DAYS ---------------- -->
+  <section id="view-special-days" class="view">
+    <h1>Special Days</h1>
+    <p class="sub">Set a date as a free-fare day, or override specific fare prices for that day only, system-wide.</p>
+    <div class="panel">
+      <h2>Add a Special Day</h2>
+      <label for="sd-date">Date</label>
+      <input id="sd-date" type="date" />
+      <label for="sd-label">Label</label>
+      <input id="sd-label" placeholder="e.g. Founders Day" />
+      <label for="sd-mode">Mode</label>
+      <select id="sd-mode" onchange="toggleOverrideFields()">
+        <option value="free">Free — all fares waived</option>
+        <option value="override">Override — custom prices</option>
+      </select>
+      <div id="sd-override-fields" style="display:none; margin-top:10px">
+        <div class="row-inline">
+          <div><label for="sd-price-one_way">One-Way ($)</label><input id="sd-price-one_way" type="number" step="0.01" /></div>
+          <div><label for="sd-price-day">Day Pass ($)</label><input id="sd-price-day" type="number" step="0.01" /></div>
+          <div><label for="sd-price-week">Weekly Pass ($)</label><input id="sd-price-week" type="number" step="0.01" /></div>
+        </div>
+      </div>
+      <button onclick="addSpecialDay()">Save Special Day</button>
+      <div id="sd-msg"></div>
+    </div>
+    <div class="panel">
+      <h2>Upcoming &amp; Past Special Days</h2>
+      <table><thead><tr><th>Date</th><th>Label</th><th>Mode</th><th></th></tr></thead><tbody id="special-days-table"></tbody></table>
+    </div>
+  </section>
+
+  <!-- ---------------- VALIDATORS ---------------- -->
+  <section id="view-validators" class="view">
+    <h1>Validators</h1>
+    <p class="sub">Set a validator to charge normally, waive fares, charge a custom price, or go out of service. Updates reach the device within about 30 seconds.</p>
+    <div class="panel" id="validators-list"></div>
+
+    <div class="panel">
+      <h2>Update a Validator</h2>
+      <label for="val-id">Validator ID</label>
+      <input id="val-id" placeholder="VAL100-01" />
+      <label for="val-label">Label (optional)</label>
+      <input id="val-label" placeholder="e.g. Front door, Bus 12" />
+      <label>Service status</label>
+      <div class="radio-row">
+        <label><input type="radio" name="val-status" value="in_service" checked /> In Service</label>
+        <label><input type="radio" name="val-status" value="out_of_service" /> Out of Service</label>
+      </div>
+      <label>Fare mode</label>
+      <div class="radio-row">
+        <label><input type="radio" name="val-mode" value="normal" checked onclick="toggleValOverride()" /> Normal</label>
+        <label><input type="radio" name="val-mode" value="free" onclick="toggleValOverride()" /> Free Rides</label>
+        <label><input type="radio" name="val-mode" value="override" onclick="toggleValOverride()" /> Custom Price</label>
+      </div>
+      <div id="val-override-field" style="display:none">
+        <label for="val-override-price">Custom one-way price ($)</label>
+        <input id="val-override-price" type="number" step="0.01" placeholder="2.00" />
+      </div>
+      <button onclick="updateValidator()">Save Validator</button>
+      <div id="val-msg"></div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  const API_BASE = "https://mybrickpass-api.YOUR_WORKER.workers.dev";
+  const SSO_LOGIN_URL = "https://sso.citymetro.xyz";
+  let session = { token: localStorage.getItem("cm_admin_token") || null };
+  let activeCardNumber = null;
+
+  function go(view) {
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    document.getElementById(`view-${view}`).classList.add("active");
+    if (view === "fares") loadFares();
+    if (view === "ticket-types") loadTicketTypes();
+    if (view === "special-days") loadSpecialDays();
+    if (view === "validators") loadValidators();
+  }
+
+  function signInWithSSO() {
+    const redirect = encodeURIComponent(window.location.origin + window.location.pathname);
+    window.location.href = `${SSO_LOGIN_URL}?redirect=${redirect}`;
+  }
+  async function handleSsoCallback() {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    if (!token) return false;
+    localStorage.setItem("cm_admin_token", token);
+    session.token = token;
+    history.replaceState({}, "", window.location.pathname);
+    return true;
+  }
+  function signOut() {
+    localStorage.removeItem("cm_admin_token");
+    session.token = null;
+    document.getElementById("nav-signout").style.display = "none";
+    document.getElementById("view-signin").classList.add("active");
+    document.querySelectorAll(".view:not(#view-signin)").forEach(v => v.classList.remove("active"));
+  }
+  async function authedFetch(path, options = {}) {
+    return fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: { "content-type": "application/json", ...(options.headers || {}), ...(session.token ? { authorization: `Bearer ${session.token}` } : {}) },
+    });
+  }
+  async function tryEnterAdmin() {
+    const res = await authedFetch("/admin/fares");
+    if (res.status === 403) {
+      document.getElementById("signin-msg").innerHTML = `<div class="msg error">This account doesn't have admin access.</div>`;
+      signOut(); return false;
+    }
+    if (!res.ok) { document.getElementById("signin-msg").innerHTML = `<div class="msg error">Sign-in failed — try again.</div>`; return false; }
+    document.getElementById("nav-signout").style.display = "inline";
+    document.getElementById("view-signin").classList.remove("active");
+    go("cards");
+    return true;
+  }
+
+  // ---- cards ----
+  async function searchCards() {
+    const q = document.getElementById("card-search").value.trim();
+    const res = await authedFetch(`/admin/cards${q ? `?q=${encodeURIComponent(q)}` : ""}`);
+    const cards = await res.json();
+    document.getElementById("card-search-results").innerHTML = cards.map(c => `
+      <tr>
+        <td>${c.card_number}</td>
+        <td class="nomono">${c.assigned_email || (c.user_id ? c.user_id : "—")}</td>
+        <td class="nomono">$${(c.balance_cents / 100).toFixed(2)}</td>
+        <td class="nomono"><span class="status-pill ${c.status}">${c.status}</span></td>
+        <td class="nomono"><button class="small secondary" onclick="loadCard('${c.card_number}')">Open</button></td>
+      </tr>
+    `).join("") || `<tr><td colspan="5" class="nomono sub">No cards found.</td></tr>`;
+  }
+
+  async function loadCard(cardNumber) {
+    const res = await authedFetch(`/admin/cards/${encodeURIComponent(cardNumber)}`);
+    const data = await res.json();
+    if (!res.ok) { alert(data.error); return; }
+    activeCardNumber = cardNumber;
+    document.getElementById("card-detail").style.display = "block";
+    document.getElementById("card-detail-title").textContent = `Card ${cardNumber}`;
+    document.getElementById("edit-balance").value = (data.card.balance_cents / 100).toFixed(2);
+    document.getElementById("edit-status").value = data.card.status;
+    document.getElementById("edit-pass-type").value = data.card.pass_type || "";
+    document.getElementById("edit-pass-expires").value = data.card.pass_expires_at
+      ? new Date(data.card.pass_expires_at * 1000).toISOString().slice(0, 10) : "";
+    document.getElementById("edit-assigned-email").value = data.card.assigned_email || (data.owner ? data.owner.email : "") || "";
+
+    document.getElementById("card-txns").innerHTML = data.transactions.map(t => `
+      <tr>
+        <td class="nomono">${new Date(t.created_at * 1000).toLocaleString()}</td>
+        <td class="nomono">${t.type}</td>
+        <td class="nomono">${t.amount_cents >= 0 ? "+" : ""}$${(t.amount_cents / 100).toFixed(2)}</td>
+        <td class="nomono">$${(t.balance_after_cents / 100).toFixed(2)}</td>
+        <td>${t.validator_id || "—"}</td>
+      </tr>
+    `).join("") || `<tr><td colspan="5" class="nomono sub">No transactions yet.</td></tr>`;
+    document.getElementById("card-detail").scrollIntoView({ behavior: "smooth" });
+  }
+
+  async function saveCard() {
+    const msgEl = document.getElementById("card-save-msg");
+    const passType = document.getElementById("edit-pass-type").value;
+    const passExpiresStr = document.getElementById("edit-pass-expires").value;
+    const body = {
+      balance_cents: Math.round(parseFloat(document.getElementById("edit-balance").value) * 100),
+      status: document.getElementById("edit-status").value,
+      pass_type: passType || null,
+      pass_expires_at: passType && passExpiresStr ? Math.floor(new Date(passExpiresStr).getTime() / 1000) : null,
+      assigned_email: document.getElementById("edit-assigned-email").value.trim() || null,
+    };
+    const res = await authedFetch(`/admin/cards/${encodeURIComponent(activeCardNumber)}`, { method: "PATCH", body: JSON.stringify(body) });
+    const data = await res.json();
+    msgEl.innerHTML = res.ok ? `<div class="msg ok">Saved.</div>` : `<div class="msg error">${data.error}</div>`;
+  }
+
+  async function createCard() {
+    const card_number = document.getElementById("new-card-number").value.trim() || undefined;
+    const email = document.getElementById("new-card-email").value.trim() || undefined;
+    const dollars = parseFloat(document.getElementById("new-card-balance").value) || 0;
+    const msgEl = document.getElementById("new-card-msg");
+    const res = await authedFetch("/admin/cards", {
+      method: "POST",
+      body: JSON.stringify({ card_number, email, initial_balance_cents: Math.round(dollars * 100) }),
+    });
+    const data = await res.json();
+    msgEl.innerHTML = res.ok
+      ? `<div class="msg ok">Card created: ${data.card_number}</div>`
+      : `<div class="msg error">${data.error}</div>`;
+    if (res.ok) { document.getElementById("new-card-number").value = ""; document.getElementById("new-card-email").value = ""; }
+  }
+
+  async function bulkCredit() {
+    const dollars = parseFloat(document.getElementById("bulk-amount").value);
+    const msgEl = document.getElementById("bulk-msg");
+    if (!dollars) { msgEl.innerHTML = `<div class="msg error">Enter a non-zero amount.</div>`; return; }
+    if (!confirm(`Apply $${dollars.toFixed(2)} to EVERY card in the system?`)) return;
+    const res = await authedFetch("/admin/cards/bulk-credit", { method: "POST", body: JSON.stringify({ amount_cents: Math.round(dollars * 100) }) });
+    msgEl.innerHTML = res.ok ? `<div class="msg ok">Applied to all cards.</div>` : `<div class="msg error">Something went wrong.</div>`;
+  }
+  async function bulkPass() {
+    const fareType = document.getElementById("bulk-pass").value;
+    const msgEl = document.getElementById("bulk-msg");
+    if (!confirm(`Grant a ${fareType === "week" ? "Weekly" : "Day"} Pass to EVERY card in the system?`)) return;
+    const res = await authedFetch("/admin/cards/bulk-pass", { method: "POST", body: JSON.stringify({ fare_type: fareType }) });
+    msgEl.innerHTML = res.ok ? `<div class="msg ok">Pass granted to all cards.</div>` : `<div class="msg error">Something went wrong.</div>`;
+  }
+
+  // ---- fares ----
+  async function loadFares() {
+    const res = await authedFetch("/admin/fares");
+    const fares = await res.json();
+    document.getElementById("fares-table").innerHTML = fares.map(f => `
+      <tr>
+        <td class="nomono">${f.label}</td>
+        <td class="nomono">$<input class="fare-price-input" id="fare-price-${f.fare_type}" type="number" step="0.01" value="${(f.price_cents / 100).toFixed(2)}" /></td>
+        <td class="nomono"><button class="small secondary" onclick="saveFare('${f.fare_type}')">Save</button></td>
+      </tr>
+    `).join("");
+  }
+  async function saveFare(fareType) {
+    const dollars = parseFloat(document.getElementById(`fare-price-${fareType}`).value);
+    await authedFetch(`/admin/fares/${fareType}`, { method: "PATCH", body: JSON.stringify({ price_cents: Math.round(dollars * 100) }) });
+    loadFares();
+  }
+
+  // ---- ticket types ----
+  async function loadTicketTypes() {
+    const res = await authedFetch("/admin/ticket-types");
+    const types = await res.json();
+    document.getElementById("ticket-types-table").innerHTML = types.map(t => `
+      <tr>
+        <td class="nomono">${t.label} <span class="sub" style="font-family:monospace">(${t.type_id})</span></td>
+        <td class="nomono">${t.rides_included}</td>
+        <td class="nomono">$<input class="fare-price-input" id="tt-price-${t.type_id}" type="number" step="0.01" value="${(t.price_cents / 100).toFixed(2)}" /></td>
+        <td class="nomono"><span class="status-pill ${t.active ? "active" : "blocked"}">${t.active ? "Shown" : "Hidden"}</span></td>
+        <td class="nomono">
+          <button class="small secondary" onclick="saveTicketTypePrice('${t.type_id}')">Save Price</button>
+          <button class="small secondary" onclick="toggleTicketTypeActive('${t.type_id}', ${t.active})">${t.active ? "Hide" : "Show"}</button>
+        </td>
+      </tr>
+    `).join("");
+  }
+  async function saveTicketTypePrice(typeId) {
+    const dollars = parseFloat(document.getElementById(`tt-price-${typeId}`).value);
+    await authedFetch(`/admin/ticket-types/${typeId}`, { method: "PATCH", body: JSON.stringify({ price_cents: Math.round(dollars * 100) }) });
+    loadTicketTypes();
+  }
+  async function toggleTicketTypeActive(typeId, currentlyActive) {
+    await authedFetch(`/admin/ticket-types/${typeId}`, { method: "PATCH", body: JSON.stringify({ active: currentlyActive ? 0 : 1 }) });
+    loadTicketTypes();
+  }
+  async function createTicketType() {
+    const type_id = document.getElementById("tt-id").value.trim();
+    const label = document.getElementById("tt-label").value.trim();
+    const dollars = parseFloat(document.getElementById("tt-price").value);
+    const rides = parseInt(document.getElementById("tt-rides").value, 10) || 1;
+    const msgEl = document.getElementById("tt-msg");
+    if (!type_id || !label || !dollars) { msgEl.innerHTML = `<div class="msg error">Fill in ID, label, and price.</div>`; return; }
+    const res = await authedFetch("/admin/ticket-types", {
+      method: "POST", body: JSON.stringify({ type_id, label, price_cents: Math.round(dollars * 100), rides_included: rides }),
+    });
+    const data = await res.json();
+    msgEl.innerHTML = res.ok ? `<div class="msg ok">Saved.</div>` : `<div class="msg error">${data.error}</div>`;
+    if (res.ok) { loadTicketTypes(); document.getElementById("tt-id").value = ""; document.getElementById("tt-label").value = ""; document.getElementById("tt-price").value = ""; }
+  }
+
+  // ---- special days ----
+  function toggleOverrideFields() {
+    document.getElementById("sd-override-fields").style.display = document.getElementById("sd-mode").value === "override" ? "block" : "none";
+  }
+  async function addSpecialDay() {
+    const date = document.getElementById("sd-date").value;
+    const mode = document.getElementById("sd-mode").value;
+    const label = document.getElementById("sd-label").value.trim();
+    const msgEl = document.getElementById("sd-msg");
+    if (!date) { msgEl.innerHTML = `<div class="msg error">Pick a date.</div>`; return; }
+    let overrides = [];
+    if (mode === "override") {
+      for (const fareType of ["one_way", "day", "week"]) {
+        const val = document.getElementById(`sd-price-${fareType}`).value;
+        if (val !== "") overrides.push({ fare_type: fareType, price_cents: Math.round(parseFloat(val) * 100) });
+      }
+    }
+    const res = await authedFetch("/admin/special-days", { method: "POST", body: JSON.stringify({ date, mode, label, overrides }) });
+    const data = await res.json();
+    msgEl.innerHTML = res.ok ? `<div class="msg ok">Saved.</div>` : `<div class="msg error">${data.error}</div>`;
+    if (res.ok) loadSpecialDays();
+  }
+  async function loadSpecialDays() {
+    const res = await authedFetch("/admin/special-days");
+    const data = await res.json();
+    document.getElementById("special-days-table").innerHTML = data.days.map(d => `
+      <tr>
+        <td class="nomono">${d.date}</td>
+        <td class="nomono">${d.label || "—"}</td>
+        <td class="nomono">${d.mode === "free" ? "Free" : "Override"}</td>
+        <td class="nomono"><button class="small danger" onclick="deleteSpecialDay('${d.date}')">Remove</button></td>
+      </tr>
+    `).join("") || `<tr><td colspan="4" class="nomono sub">None scheduled.</td></tr>`;
+  }
+  async function deleteSpecialDay(date) {
+    await authedFetch(`/admin/special-days/${date}`, { method: "DELETE" });
+    loadSpecialDays();
+  }
+
+  // ---- validators ----
+  function toggleValOverride() {
+    const mode = document.querySelector('input[name="val-mode"]:checked').value;
+    document.getElementById("val-override-field").style.display = mode === "override" ? "block" : "none";
+  }
+  async function loadValidators() {
+    const res = await authedFetch("/admin/validators");
+    const validators = await res.json();
+    document.getElementById("validators-list").innerHTML = validators.length
+      ? `<table><thead><tr><th>Validator</th><th>Status</th><th>Fare Mode</th><th>Last Seen</th></tr></thead><tbody>${
+          validators.map(v => `
+            <tr>
+              <td class="nomono">${v.validator_id}${v.label ? ` — ${v.label}` : ""}</td>
+              <td class="nomono"><span class="status-pill ${v.status}">${v.status === "in_service" ? "In Service" : "Out of Service"}</span></td>
+              <td class="nomono"><span class="status-pill ${v.fare_mode}">${
+                v.fare_mode === "override" ? `Custom: $${(v.override_price_cents / 100).toFixed(2)}` : (v.fare_mode === "free" ? "Free Rides" : "Normal")
+              }</span></td>
+              <td class="nomono">${v.last_seen_at ? new Date(v.last_seen_at * 1000).toLocaleString() : "Never"}</td>
+            </tr>`).join("")
+        }</tbody></table>`
+      : `<p class="sub">No validators have reported in yet.</p>`;
+  }
+  async function updateValidator() {
+    const validatorId = document.getElementById("val-id").value.trim();
+    const label = document.getElementById("val-label").value.trim();
+    const status = document.querySelector('input[name="val-status"]:checked').value;
+    const fare_mode = document.querySelector('input[name="val-mode"]:checked').value;
+    const overrideDollars = document.getElementById("val-override-price").value;
+    const msgEl = document.getElementById("val-msg");
+    if (!validatorId) { msgEl.innerHTML = `<div class="msg error">Enter a validator ID.</div>`; return; }
+    if (fare_mode === "override" && !overrideDollars) { msgEl.innerHTML = `<div class="msg error">Enter a custom price.</div>`; return; }
+    const res = await authedFetch(`/admin/validators/${encodeURIComponent(validatorId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, fare_mode, label: label || undefined, override_price_cents: fare_mode === "override" ? Math.round(parseFloat(overrideDollars) * 100) : undefined }),
+    });
+    msgEl.innerHTML = res.ok ? `<div class="msg ok">Saved.</div>` : `<div class="msg error">Something went wrong.</div>`;
+    if (res.ok) loadValidators();
+  }
+
+  // ---- boot ----
+  (async function init() {
+    await handleSsoCallback();
+    if (session.token) { await tryEnterAdmin(); }
+  })();
+</script>
+
+</body>
+</html>
