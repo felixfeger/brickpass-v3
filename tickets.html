@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Buy a Ticket — MyBrickPass</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root {
+    --cm-black: #14161A;
+    --cm-gray-bg: #F4F5F7;
+    --cm-line: #E1E4E9;
+    --cm-sub: #5B6472;
+    --cm-green: #1E8E5A;
+    --cm-red: #C0392B;
+    --cm-green-bg: #E9F6EF;
+    --cm-red-bg: #FBEAE8;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Helvetica, Arial, sans-serif; color: var(--cm-black); background: var(--cm-gray-bg); }
+  header {
+    background: white; border-bottom: 1px solid var(--cm-line); padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header .brand { display: flex; align-items: center; gap: 10px; }
+  header .brand img { width: 30px; height: 30px; border-radius: 6px; }
+  header .brand .name { font-size: 15px; font-weight: 700; line-height: 1.15; }
+  header .brand .name small { display: block; font-size: 10px; font-weight: 400; color: var(--cm-sub); letter-spacing: 0.6px; }
+  header nav a { color: var(--cm-sub); text-decoration: none; font-size: 13px; margin-left: 18px; }
+  header .tag { background: var(--cm-black); color: white; font-size: 11px; font-weight: 600; letter-spacing: 0.4px; padding: 6px 12px; border-radius: 6px; }
+
+  main { max-width: 520px; margin: 0 auto; padding: 40px 20px 70px; }
+  h1 { font-size: 20px; margin: 0 0 6px; text-align: center; }
+  p.sub { color: var(--cm-sub); font-size: 13px; margin: 0 0 24px; text-align: center; }
+
+  .panel { background: white; border: 1px solid var(--cm-line); border-radius: 10px; padding: 18px; margin-bottom: 14px; }
+
+  .ticket-option {
+    display: flex; align-items: center; justify-content: space-between;
+    border: 1px solid var(--cm-line); border-radius: 10px; padding: 16px;
+    margin-bottom: 10px; cursor: pointer; transition: border-color 0.1s;
+  }
+  .ticket-option:hover { border-color: var(--cm-black); }
+  .ticket-option.selected { border-color: var(--cm-black); border-width: 2px; }
+  .ticket-option .label { font-size: 15px; font-weight: 600; }
+  .ticket-option .rides { font-size: 12px; color: var(--cm-sub); margin-top: 2px; }
+  .ticket-option .price { font-size: 17px; font-weight: 700; }
+
+  button {
+    background: var(--cm-black); color: white; border: none;
+    padding: 12px 16px; border-radius: 8px; font-size: 14px; font-weight: 600;
+    cursor: pointer; margin-top: 6px; width: 100%;
+  }
+  button:hover { background: #2A2E36; }
+  button:disabled { opacity: 0.5; cursor: default; }
+
+  .msg { font-size: 13px; padding: 8px 10px; border-radius: 6px; margin-top: 12px; }
+  .msg.error { background: var(--cm-red-bg); color: var(--cm-red); }
+  .msg.ok { background: var(--cm-green-bg); color: var(--cm-green); }
+
+  #ticket-result { text-align: center; display: none; }
+  #ticket-qr { margin: 16px auto; width: 200px; }
+  .ticket-code { font-family: monospace; font-size: 14px; letter-spacing: 1px; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <img src="https://alerts.citymetro.xyz/logo.png" alt="City Metro" />
+    <div class="name">MyBrickPass<small>CITY METRO</small></div>
+  </div>
+  <nav>
+    <a href="../index.html">My Account</a>
+    <span class="tag">CITYMETRO.XYZ</span>
+  </nav>
+</header>
+
+<main>
+  <h1>Buy a Ticket</h1>
+  <p class="sub">A digital ticket with a QR code — no card or account needed. Scan it at any Val100 validator when boarding.</p>
+
+  <div class="panel">
+    <div id="ticket-options">Loading ticket types…</div>
+    <button id="buy-btn" disabled onclick="buyTicket()">Select a Ticket</button>
+    <div id="buy-msg"></div>
+  </div>
+
+  <div class="panel" id="ticket-result">
+    <h1 style="font-size:16px">Your Ticket</h1>
+    <div id="ticket-qr"></div>
+    <div class="ticket-code" id="ticket-code-label"></div>
+    <p class="sub" style="margin-top:10px">Screenshot this or keep the page open — present it to the Val100 scanner when boarding.</p>
+  </div>
+
+  <p class="sub">Need to manage a physical card instead? <a href="../index.html">Go to My Account</a>.</p>
+</main>
+
+<script>
+  const API_BASE = "https://mybrickpass-api.YOUR_WORKER.workers.dev";
+  let selectedType = null;
+  let ticketTypes = [];
+
+  async function loadTicketTypes() {
+    try {
+      const res = await fetch(`${API_BASE}/ticket-types`);
+      ticketTypes = await res.json();
+      renderTicketOptions();
+    } catch (e) {
+      document.getElementById("ticket-options").innerHTML = `<div class="msg error">Couldn't load ticket types — try refreshing.</div>`;
+    }
+  }
+
+  function renderTicketOptions() {
+    document.getElementById("ticket-options").innerHTML = ticketTypes.map(t => `
+      <div class="ticket-option" id="opt-${t.type_id}" onclick="selectType('${t.type_id}')">
+        <div>
+          <div class="label">${t.label}</div>
+          <div class="rides">${t.rides_included} ride${t.rides_included > 1 ? "s" : ""}</div>
+        </div>
+        <div class="price">$${(t.price_cents / 100).toFixed(2)}</div>
+      </div>
+    `).join("");
+  }
+
+  function selectType(typeId) {
+    selectedType = typeId;
+    document.querySelectorAll(".ticket-option").forEach(el => el.classList.remove("selected"));
+    document.getElementById(`opt-${typeId}`).classList.add("selected");
+    const t = ticketTypes.find(t => t.type_id === typeId);
+    const btn = document.getElementById("buy-btn");
+    btn.disabled = false;
+    btn.textContent = `Buy — $${(t.price_cents / 100).toFixed(2)}`;
+  }
+
+  async function buyTicket() {
+    const msgEl = document.getElementById("buy-msg");
+    msgEl.innerHTML = "";
+    try {
+      // TODO: collect real payment before calling this — currently free/stubbed.
+      const res = await fetch(`${API_BASE}/tickets/purchase`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ticket_type: selectedType }),
+      });
+      const data = await res.json();
+      if (!res.ok) { msgEl.innerHTML = `<div class="msg error">${data.error}</div>`; return; }
+
+      document.getElementById("ticket-result").style.display = "block";
+      document.getElementById("ticket-code-label").textContent = data.code;
+      document.getElementById("ticket-qr").innerHTML = "";
+      new QRCode(document.getElementById("ticket-qr"), { text: data.code, width: 200, height: 200 });
+      document.getElementById("ticket-result").scrollIntoView({ behavior: "smooth" });
+    } catch (e) {
+      msgEl.innerHTML = `<div class="msg error">Something went wrong — try again.</div>`;
+    }
+  }
+
+  loadTicketTypes();
+</script>
+
+</body>
+</html>
