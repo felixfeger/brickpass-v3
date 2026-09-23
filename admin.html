@@ -26,7 +26,12 @@
   header .brand .name small { display: block; font-size: 9px; font-weight: 400; color: #9AA3AF; letter-spacing: 0.6px; }
   header nav a { color: #C7CDD4; text-decoration: none; font-size: 13px; margin-left: 16px; cursor: pointer; }
   header nav a.active, header nav a:hover { color: white; }
-  #nav-signout { display: none; }
+  .nav-authed-only { display: none; }
+  body.signed-in .nav-authed-only { display: inline; }
+
+  .hamburger-btn { display: none; background: none; border: none; width: auto; padding: 4px; margin: 0; cursor: pointer; }
+  .hamburger-btn svg { width: 24px; height: 24px; display: block; }
+  #mobile-nav-panel { display: none; }
 
   main { max-width: 780px; margin: 0 auto; padding: 26px 20px 60px; }
   .view { display: none; }
@@ -82,9 +87,15 @@
   .radio-row input[type="radio"] { width: auto; }
 
   @media (max-width: 640px) {
-    header { flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
-    header nav { display: flex; flex-wrap: wrap; gap: 4px 10px; width: 100%; }
-    header nav a { margin-left: 0; font-size: 12px; }
+    header nav.desktop-nav { display: none; }
+    .hamburger-btn { display: block; }
+    #mobile-nav-panel.open {
+      display: flex; flex-direction: column; gap: 2px;
+      position: absolute; top: 54px; left: 0; right: 0; background: var(--cm-black);
+      padding: 8px 16px 14px; z-index: 20;
+    }
+    #mobile-nav-panel a { padding: 10px 4px; color: white; text-decoration: none; font-size: 14px; border-bottom: 1px solid #2A2E36; }
+    #mobile-nav-panel a:last-child { border-bottom: none; }
     main { padding: 20px 14px 50px; }
     .panel { padding: 14px; }
     .row-inline { flex-direction: column; gap: 0; }
@@ -95,19 +106,30 @@
 </head>
 <body>
 
-<header>
+<header style="position: relative">
   <div class="brand">
     <img src="https://alerts.citymetro.xyz/logo.png" alt="City Metro" />
     <div class="name">MyBrickPass Admin<small>CITY METRO — STAFF ONLY</small></div>
   </div>
-  <nav id="nav">
-    <a onclick="go('cards')">Cards</a>
-    <a onclick="go('fares')">Fares</a>
-    <a onclick="go('ticket-types')">Ticket Types</a>
-    <a onclick="go('special-days')">Special Days</a>
-    <a onclick="go('validators')">Validators</a>
-    <a id="nav-signout" onclick="signOut()">Sign Out</a>
+  <nav class="desktop-nav" id="nav">
+    <a class="nav-authed-only" onclick="go('cards')">Cards</a>
+    <a class="nav-authed-only" onclick="go('fares')">Fares</a>
+    <a class="nav-authed-only" onclick="go('ticket-types')">Ticket Types</a>
+    <a class="nav-authed-only" onclick="go('special-days')">Special Days</a>
+    <a class="nav-authed-only" onclick="go('validators')">Validators</a>
+    <a class="nav-authed-only" onclick="signOut()">Sign Out</a>
   </nav>
+  <button class="hamburger-btn" onclick="toggleMobileNav()" aria-label="Menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18" stroke-linecap="round"/></svg>
+  </button>
+  <div id="mobile-nav-panel">
+    <a class="nav-authed-only" onclick="toggleMobileNav(); go('cards')">Cards</a>
+    <a class="nav-authed-only" onclick="toggleMobileNav(); go('fares')">Fares</a>
+    <a class="nav-authed-only" onclick="toggleMobileNav(); go('ticket-types')">Ticket Types</a>
+    <a class="nav-authed-only" onclick="toggleMobileNav(); go('special-days')">Special Days</a>
+    <a class="nav-authed-only" onclick="toggleMobileNav(); go('validators')">Validators</a>
+    <a class="nav-authed-only" onclick="toggleMobileNav(); signOut()">Sign Out</a>
+  </div>
 </header>
 
 <main>
@@ -334,24 +356,38 @@
   function signOut() {
     localStorage.removeItem("cm_admin_token");
     session.token = null;
-    document.getElementById("nav-signout").style.display = "none";
+    document.body.classList.remove("signed-in");
     document.getElementById("view-signin").classList.add("active");
     document.querySelectorAll(".view:not(#view-signin)").forEach(v => v.classList.remove("active"));
   }
+  function toggleMobileNav() {
+    document.getElementById("mobile-nav-panel").classList.toggle("open");
+  }
   async function authedFetch(path, options = {}) {
-    return fetch(`${API_BASE}${path}`, {
-      ...options,
-      headers: { "content-type": "application/json", ...(options.headers || {}), ...(session.token ? { authorization: `Bearer ${session.token}` } : {}) },
-    });
+    try {
+      return await fetch(`${API_BASE}${path}`, {
+        ...options,
+        headers: { "content-type": "application/json", ...(options.headers || {}), ...(session.token ? { authorization: `Bearer ${session.token}` } : {}) },
+      });
+    } catch (networkErr) {
+      throw new Error(`NETWORK_ERROR: could not reach ${API_BASE}${path}`);
+    }
   }
   async function tryEnterAdmin() {
-    const res = await authedFetch("/admin/fares");
+    let res;
+    try {
+      res = await authedFetch("/admin/fares");
+    } catch (e) {
+      document.getElementById("signin-msg").innerHTML =
+        `<div class="msg error">Couldn't reach the server at<br><code>${API_BASE}</code><br><br>Check the Worker URL and that it's deployed.</div>`;
+      return false;
+    }
     if (res.status === 403) {
       document.getElementById("signin-msg").innerHTML = `<div class="msg error">This account doesn't have admin access.</div>`;
       signOut(); return false;
     }
-    if (!res.ok) { document.getElementById("signin-msg").innerHTML = `<div class="msg error">Sign-in failed — try again.</div>`; return false; }
-    document.getElementById("nav-signout").style.display = "inline";
+    if (!res.ok) { document.getElementById("signin-msg").innerHTML = `<div class="msg error">Sign-in failed (status ${res.status}) — try again.</div>`; return false; }
+    document.body.classList.add("signed-in");
     document.getElementById("view-signin").classList.remove("active");
     go("cards");
     return true;
