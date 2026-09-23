@@ -122,6 +122,21 @@
   hr.divider { border: none; border-top: 1px solid var(--cm-line); margin: 22px 0; }
   .fare-list .fare-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--cm-line); font-size: 14px; }
   .fare-list .fare-item:last-child { border-bottom: none; }
+
+  @media (max-width: 560px) {
+    header { flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
+    header nav { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; width: 100%; }
+    header nav a { margin-left: 0; }
+    header .tag { font-size: 10px; padding: 5px 9px; }
+    main { padding: 24px 14px 50px; }
+    h1 { font-size: 18px; }
+    .panel { padding: 16px; }
+    .card-actions { flex-direction: column; align-items: stretch; }
+    .card-actions button { width: 100%; }
+    .wallet-row { flex-direction: column; }
+    .apple-wallet-btn, .google-wallet-btn { width: 100%; justify-content: center; }
+    #google-signin-button > div { width: 100% !important; }
+  }
 </style>
 </head>
 <body>
@@ -214,14 +229,14 @@
       <button class="secondary" onclick="buyPass('day')">Day Pass — $5.00</button>
       <button class="secondary" onclick="buyPass('week')" style="margin-top:8px">Weekly Pass — $18.00</button>
       <div id="buy-pass-msg"></div>
-    </div
+    </div>
   </section>
 
 </main>
 
 <script>
   // ---- configuration ----
-  const API_BASE = "https://brickpassv3.felixfeger46.workers.dev";
+  const API_BASE = "https://mybrickpass-api.YOUR_WORKER.workers.dev";
   const SSO_LOGIN_URL = "https://sso.citymetro.xyz";
   const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com";
 
