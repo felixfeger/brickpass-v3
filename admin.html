@@ -80,6 +80,17 @@
   .radio-row { display: flex; gap: 16px; margin-top: 10px; font-size: 13px; }
   .radio-row label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--cm-black); margin: 0; }
   .radio-row input[type="radio"] { width: auto; }
+
+  @media (max-width: 640px) {
+    header { flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
+    header nav { display: flex; flex-wrap: wrap; gap: 4px 10px; width: 100%; }
+    header nav a { margin-left: 0; font-size: 12px; }
+    main { padding: 20px 14px 50px; }
+    .panel { padding: 14px; }
+    .row-inline { flex-direction: column; gap: 0; }
+    table { display: block; overflow-x: auto; white-space: nowrap; }
+    .radio-row { flex-direction: column; gap: 8px; }
+  }
 </style>
 </head>
 <body>
@@ -293,7 +304,7 @@
 </main>
 
 <script>
-  const API_BASE = "https://brickpassv3.felixfeger46.workers.dev";
+  const API_BASE = "https://mybrickpass-api.YOUR_WORKER.workers.dev";
   const SSO_LOGIN_URL = "https://sso.citymetro.xyz";
   let session = { token: localStorage.getItem("cm_admin_token") || null };
   let activeCardNumber = null;
