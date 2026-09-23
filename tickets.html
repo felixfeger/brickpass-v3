@@ -61,6 +61,14 @@
   #ticket-result { text-align: center; display: none; }
   #ticket-qr { margin: 16px auto; width: 200px; }
   .ticket-code { font-family: monospace; font-size: 14px; letter-spacing: 1px; margin-top: 8px; }
+
+  @media (max-width: 560px) {
+    header { flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
+    header nav { display: flex; flex-wrap: wrap; gap: 6px 12px; width: 100%; }
+    main { padding: 24px 14px 50px; }
+    .panel { padding: 14px; }
+    .ticket-option { padding: 12px; }
+  }
 </style>
 </head>
 <body>
@@ -97,7 +105,7 @@
 </main>
 
 <script>
-  const API_BASE = "https://brickpassv3.felixfeger46.workers.dev";
+  const API_BASE = "https://mybrickpass-api.YOUR_WORKER.workers.dev";
   let selectedType = null;
   let ticketTypes = [];
 
