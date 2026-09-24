@@ -261,9 +261,9 @@
 
 <script>
   // ---- configuration ----
-  const API_BASE = "https://brickpassv3.felixfeger46.workers.dev";
+  const API_BASE = "https://mybrickpass-api.YOUR_WORKER.workers.dev";
   const SSO_LOGIN_URL = "https://sso.citymetro.xyz";
-  const GOOGLE_CLIENT_ID = "1053192556643-2q6uutt6h7kouo9r94havjpmtp3f6qoc.apps.googleusercontent.com";
+  const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com";
 
   let session = { token: localStorage.getItem("cm_token") || null };
   let currentCards = [];
@@ -377,6 +377,7 @@
   async function loadDashboard() {
     const res = await authedFetch("/me");
     const data = await res.json();
+    if (!res.ok) throw new Error(`SERVER_ERROR: ${data.error || res.status}`);
     currentCards = data.cards;
     document.getElementById("welcome-name").textContent = `Welcome, ${data.user.first_name || "Rider"}`;
     setAuthedUI(true);
@@ -532,12 +533,22 @@
       try {
         await loadDashboard();
       } catch (e) {
-        if (String(e.message).startsWith("NETWORK_ERROR")) {
+        const msg = String(e.message);
+        if (msg.startsWith("NETWORK_ERROR")) {
           // Real connectivity problem — show it, don't pretend you're signed out.
           document.getElementById("view-loading").innerHTML =
             `<div class="msg error" style="display:inline-block; text-align:left">
                Couldn't reach the server at<br><code>${API_BASE}</code><br><br>
                Check that this matches your deployed Worker's URL, and that it's actually deployed.
+             </div>`;
+          return;
+        }
+        if (msg.startsWith("SERVER_ERROR")) {
+          // We reached the Worker, but it returned an error — also NOT the
+          // same as "not signed in." Surface the real message.
+          document.getElementById("view-loading").innerHTML =
+            `<div class="msg error" style="display:inline-block; text-align:left">
+               The server returned an error:<br><code>${msg.replace("SERVER_ERROR: ", "")}</code>
              </div>`;
           return;
         }
