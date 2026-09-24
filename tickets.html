@@ -125,21 +125,35 @@
 </main>
 
 <script>
-  const API_BASE = "https://brickpassv3.felixfeger46.workers.dev";
+  const API_BASE = "https://brickpassv3.felixfeger46.workers.dev/";
   let selectedType = null;
   let ticketTypes = [];
   let purchasedCode = null;
 
+  function base64ToBlob(base64, mimeType) {
+    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+    return new Blob([bytes], { type: mimeType });
+  }
+
   async function addTicketToGoogleWallet() {
     try {
-      const res = await fetch(`${API_BASE}/wallet/google/ticket/${purchasedCode}`);
+      const res = await fetch(`${API_BASE}/wallet/ticket/${purchasedCode}`);
       const data = await res.json();
-      if (!res.ok) { alert(data.error || "Google Wallet isn't set up yet."); return; }
-      window.open(data.save_url, "_blank");
+      if (!res.ok) { alert(data.error || "Wallet passes aren't set up yet."); return; }
+      window.open(data.google_save_url, "_blank");
     } catch (e) { alert("Something went wrong — try again."); }
   }
-  function addTicketToAppleWallet() {
-    alert("Apple Wallet support is coming soon — Google Wallet is available now.");
+  async function addTicketToAppleWallet() {
+    try {
+      const res = await fetch(`${API_BASE}/wallet/ticket/${purchasedCode}`);
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || "Wallet passes aren't set up yet."); return; }
+      const blob = base64ToBlob(data.apple_pass_base64, "application/vnd.apple.pkpass");
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${purchasedCode}.pkpass`;
+      link.click();
+    } catch (e) { alert("Something went wrong — try again."); }
   }
 
   async function loadTicketTypes() {
