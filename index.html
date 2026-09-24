@@ -438,24 +438,30 @@
     await loadDashboard();
   }
 
+  function base64ToBlob(base64, mimeType) {
+    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+    return new Blob([bytes], { type: mimeType });
+  }
+
   async function addToGoogleWallet(cardNumber) {
     try {
-      const res = await authedFetch(`/wallet/google/${cardNumber}`);
+      const res = await authedFetch(`/wallet/card/${cardNumber}`);
       const data = await res.json();
-      if (!res.ok) { alert(data.error || "Google Wallet isn't set up yet."); return; }
-      window.open(data.save_url, "_blank");
+      if (!res.ok) { alert(data.error || "Wallet passes aren't set up yet."); return; }
+      window.open(data.google_save_url, "_blank");
     } catch (e) { /* signOut already handled 401 */ }
   }
   async function addToAppleWallet(cardNumber) {
     try {
-      const res = await authedFetch(`/wallet/apple/${cardNumber}`);
-      if (res.status === 501) { alert("Apple Wallet support is coming soon — Google Wallet is available now."); return; }
-      const blob = await res.blob();
+      const res = await authedFetch(`/wallet/card/${cardNumber}`);
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || "Wallet passes aren't set up yet."); return; }
+      const blob = base64ToBlob(data.apple_pass_base64, "application/vnd.apple.pkpass");
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = `${cardNumber}.pkpass`;
       link.click();
-    } catch (e) { alert("Apple Wallet support is coming soon — Google Wallet is available now."); }
+    } catch (e) { /* signOut already handled 401 */ }
   }
 
   function openAddValue(cardNumber) {
