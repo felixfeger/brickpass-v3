@@ -62,6 +62,16 @@
   #ticket-qr { margin: 16px auto; width: 200px; }
   .ticket-code { font-family: monospace; font-size: 14px; letter-spacing: 1px; margin-top: 8px; }
 
+  .wallet-row { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .apple-wallet-btn, .google-wallet-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: #000; color: #fff; border: none; padding: 0 16px; height: 40px;
+    font-size: 14px; font-weight: 500; cursor: pointer; width: auto; margin-top: 0;
+  }
+  .apple-wallet-btn { border-radius: 8px; font-family: -apple-system, Helvetica, Arial, sans-serif; }
+  .google-wallet-btn { border-radius: 999px; font-family: 'Google Sans', Helvetica, Arial, sans-serif; }
+  .apple-wallet-btn svg, .google-wallet-btn svg { width: 20px; height: 20px; }
+
   @media (max-width: 560px) {
     header { flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
     header nav { display: flex; flex-wrap: wrap; gap: 6px 12px; width: 100%; }
@@ -99,15 +109,38 @@
     <div id="ticket-qr"></div>
     <div class="ticket-code" id="ticket-code-label"></div>
     <p class="sub" style="margin-top:10px">Screenshot this or keep the page open — present it to the Val100 scanner when boarding.</p>
+    <div class="wallet-row">
+      <button class="apple-wallet-btn" onclick="addTicketToAppleWallet()">
+        <svg viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="3" stroke="white" stroke-width="1.6"/><path d="M2 9h20" stroke="white" stroke-width="1.6"/></svg>
+        Add to Apple Wallet
+      </button>
+      <button class="google-wallet-btn" onclick="addTicketToGoogleWallet()">
+        <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="3" fill="#4285F4"/><path d="M2 9h20v3H2z" fill="#EA4335"/><path d="M2 12h20v3H2z" fill="#FBBC05"/><path d="M2 15h20v4a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3z" fill="#34A853"/></svg>
+        Add to Google Wallet
+      </button>
+    </div>
   </div>
 
   <p class="sub">Need to manage a physical card instead? <a href="../index.html">Go to My Account</a>.</p>
 </main>
 
 <script>
-  const API_BASE = "https://brickpassv3.felixfeger46.workers.dev";
+  const API_BASE = "https://mybrickpass-api.YOUR_WORKER.workers.dev";
   let selectedType = null;
   let ticketTypes = [];
+  let purchasedCode = null;
+
+  async function addTicketToGoogleWallet() {
+    try {
+      const res = await fetch(`${API_BASE}/wallet/google/ticket/${purchasedCode}`);
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || "Google Wallet isn't set up yet."); return; }
+      window.open(data.save_url, "_blank");
+    } catch (e) { alert("Something went wrong — try again."); }
+  }
+  function addTicketToAppleWallet() {
+    alert("Apple Wallet support is coming soon — Google Wallet is available now.");
+  }
 
   async function loadTicketTypes() {
     try {
@@ -153,6 +186,7 @@
       const data = await res.json();
       if (!res.ok) { msgEl.innerHTML = `<div class="msg error">${data.error}</div>`; return; }
 
+      purchasedCode = data.code;
       document.getElementById("ticket-result").style.display = "block";
       document.getElementById("ticket-code-label").textContent = data.code;
       document.getElementById("ticket-qr").innerHTML = "";
