@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>MyBrickPass Admin — City Metro</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root {
     --cm-black: #14161A;
@@ -140,6 +141,8 @@
     <p class="sub">Sign in with a City Metro account that has admin access.</p>
     <div class="panel">
       <button onclick="signInWithSSO()">Sign in with City Metro SSO</button>
+      <div style="text-align:center; font-size:11px; color:#9AA3AF; letter-spacing:1px; margin:16px 0">OR</div>
+      <div id="google-signin-button" style="display:flex; justify-content:center"></div>
       <div id="signin-msg"></div>
     </div>
   </section>
@@ -326,9 +329,22 @@
 </main>
 
 <script>
-  const API_BASE = "https://brickpassv3.felixfeger46.workers.dev";
+  const API_BASE = "https://mybrickpass-api.YOUR_WORKER.workers.dev";
   const SSO_LOGIN_URL = "https://sso.citymetro.xyz";
+  const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com";
   let session = { token: localStorage.getItem("cm_admin_token") || null };
+
+  window.onload = () => {
+    if (window.google && !GOOGLE_CLIENT_ID.startsWith("YOUR_")) {
+      google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleCredential });
+      google.accounts.id.renderButton(document.getElementById("google-signin-button"), { theme: "outline", size: "large", width: 280 });
+    }
+  };
+  async function handleGoogleCredential(response) {
+    localStorage.setItem("cm_admin_token", response.credential);
+    session.token = response.credential;
+    await tryEnterAdmin();
+  }
   let activeCardNumber = null;
 
   function go(view) {
