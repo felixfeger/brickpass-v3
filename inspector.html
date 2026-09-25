@@ -112,6 +112,8 @@
     <div class="panel" id="result-panel" style="display:none">
       <h2 id="result-title">Result</h2>
       <div id="result-body"></div>
+      <button class="secondary" id="charge-fare-btn" style="display:none" onclick="chargeFare()">Charge Fare (Validator Down)</button>
+      <div id="charge-fare-msg"></div>
     </div>
 
     <div class="panel" id="penalty-panel" style="display:none">
@@ -195,6 +197,8 @@
     document.getElementById("lookup-input").placeholder = mode === "card" ? "BP3542942903" : "A1B2C3D4E5F6G7H8";
     document.getElementById("result-panel").style.display = "none";
     document.getElementById("penalty-panel").style.display = "none";
+    document.getElementById("charge-fare-btn").style.display = "none";
+    document.getElementById("charge-fare-msg").innerHTML = "";
   }
 
   // ---- QR scanning ----
@@ -262,7 +266,30 @@
       `).join("") || `<p class="sub">No activity yet.</p>`}
     `;
     document.getElementById("result-panel").style.display = "block";
+    document.getElementById("charge-fare-btn").style.display = "block";
+    document.getElementById("charge-fare-msg").innerHTML = "";
     await preparePenaltyForm();
+  }
+
+  async function chargeFare() {
+    const msgEl = document.getElementById("charge-fare-msg");
+    if (!confirm(`Manually charge a fare to ${currentLookupValue}? Use this only when the validator itself is broken — this behaves exactly like a real tap (respects passes, transfers, and special pricing).`)) return;
+    const res = await authedFetch("/admin/inspect/charge-fare", { method: "POST", body: JSON.stringify({ card_number: currentLookupValue }) });
+    const data = await res.json();
+    const REASON_TEXT = {
+      active_pass: "Covered by an active pass — no charge.",
+      transfer: "Free transfer — within 2 hours of a paid fare.",
+      free_day: "Free fare day — no charge.",
+      validator_free: "Fare waived — no charge.",
+      fare_deducted: `Fare charged. New balance: $${(data.new_balance_cents / 100).toFixed(2)}`,
+      insufficient_balance: `Insufficient balance — card only has $${(data.balance_cents / 100).toFixed(2)}.`,
+      blocked: "Card is blocked.",
+      deactivated: "Card is deactivated.",
+      lost: "Card reported lost.",
+      unknown_card: "Card not recognized.",
+    };
+    msgEl.innerHTML = `<div class="msg ${data.approved ? "ok" : "error"}">${REASON_TEXT[data.reason] || data.reason}</div>`;
+    if (data.approved) lookupCard(currentLookupValue, document.getElementById("lookup-msg"));
   }
 
   async function lookupTicket(code, msgEl) {
