@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=480, height=272, initial-scale=1, user-scalable=no" />
+<title>MyBrickPass — Validator</title>
+<style>
+  :root {
+    --cm-blue: #1D4E89;
+    --cm-blue-dark: #123457;
+    --cm-green: #1E8E5A;
+    --cm-red: #C0392B;
+    --cm-ink: #12181F;
+    --cm-paper: #FFFFFF;
+    --cm-line: #D8DEE6;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0; padding: 0;
+    width: 480px; height: 272px;
+    overflow: hidden;
+    background: var(--cm-paper);
+    font-family: Helvetica, Arial, sans-serif;
+    color: var(--cm-ink);
+  }
+
+  #screen {
+    position: relative;
+    width: 480px; height: 272px;
+  }
+
+  .state {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .state.active { display: flex; }
+
+  /* ---------- idle ---------- */
+  #state-idle {
+    background: var(--cm-blue);
+    color: white;
+  }
+  #state-idle .mark {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    margin-bottom: 4px;
+  }
+  #state-idle .mark span { color: #AFC7E3; }
+  #state-idle .prompt {
+    font-size: 15px;
+    color: #DCE6F2;
+    margin-top: 10px;
+  }
+  #state-idle .icon-row {
+    display: flex;
+    gap: 28px;
+    margin-top: 18px;
+  }
+  #state-idle .icon-row div {
+    width: 46px; height: 46px;
+    border: 2px solid #AFC7E3;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+
+  /* ---------- out of service ---------- */
+  #state-out-of-service {
+    background: #3A4048;
+    color: #C7CDD4;
+  }
+  #state-out-of-service .mark {
+    font-size: 18px;
+    font-weight: 700;
+    color: #E8EAED;
+  }
+  #state-out-of-service .prompt {
+    font-size: 13px;
+    margin-top: 8px;
+  }
+
+  /* ---------- processing ---------- */
+  #state-processing { background: var(--cm-paper); }
+  .spinner {
+    width: 34px; height: 34px;
+    border: 4px solid var(--cm-line);
+    border-top-color: var(--cm-blue);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-bottom: 14px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #state-processing .label { font-size: 15px; color: #566473; }
+
+  /* ---------- result (approved/denied share layout) ---------- */
+  .state.result .badge {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 10px;
+  }
+  .state.result .badge svg { width: 32px; height: 32px; }
+  #state-approved .badge { background: var(--cm-green); }
+  #state-denied .badge { background: var(--cm-red); }
+
+  .state.result .headline {
+    font-size: 20px;
+    font-weight: 700;
+  }
+  #state-approved .headline { color: var(--cm-green); }
+  #state-denied .headline { color: var(--cm-red); }
+
+  .state.result .detail {
+    font-size: 14px;
+    color: #566473;
+    margin-top: 6px;
+  }
+  .state.result .balance {
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--cm-ink);
+    background: #F1F4F8;
+    border-radius: 6px;
+    padding: 5px 12px;
+  }
+
+  /* ---------- dev/test panel (hidden on the real device) ---------- */
+  #devpanel {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.82);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    z-index: 10;
+  }
+  #devpanel.active { display: flex; }
+  #devpanel input {
+    width: 220px; padding: 6px 8px; font-size: 13px;
+    border-radius: 4px; border: none;
+  }
+  #devpanel button {
+    width: 220px; padding: 7px 8px; font-size: 13px;
+    border-radius: 4px; border: none; cursor: pointer;
+    background: var(--cm-blue); color: white;
+  }
+  #devpanel .hint { color: #aaa; font-size: 11px; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<div id="screen">
+
+  <div id="state-idle" class="state active">
+    <div class="mark">CITY <span>METRO</span></div>
+    <div class="prompt">Tap your card or scan your ticket</div>
+    <div class="icon-row">
+      <div>▢▢</div>
+      <div>▤</div>
+    </div>
+  </div>
+
+  <div id="state-out-of-service" class="state">
+    <div class="mark">Out of Service</div>
+    <div class="prompt">This validator is temporarily unavailable.<br>Please board and tap at the next validator.</div>
+  </div>
+
+  <div id="state-processing" class="state">
+    <div class="spinner"></div>
+    <div class="label">Checking fare…</div>
+  </div>
+
+  <div id="state-approved" class="state result">
+    <div class="badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
+        <path d="M4 12l5 5L20 6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="headline">Approved</div>
+    <div class="detail" id="approved-detail">Fare deducted</div>
+    <div class="balance" id="approved-balance"></div>
+  </div>
+
+  <div id="state-denied" class="state result">
+    <div class="badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
+        <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="headline">Not Approved</div>
+    <div class="detail" id="denied-detail">Insufficient balance</div>
+  </div>
+
+  <!-- Dev/test overlay: press "d" on a keyboard to show. Not part of the
+       production kiosk build — lets you exercise the flow without real
+       reader hardware attached. Remove before shipping to the device. -->
+  <div id="devpanel">
+    <input id="dev-card" placeholder="Card number" />
+    <button onclick="devTap()">Simulate Tap</button>
+    <input id="dev-code" placeholder="Ticket code" />
+    <button onclick="devScan()">Simulate Scan</button>
+    <div class="hint">press "d" to hide</div>
+  </div>
+
+</div>
+
+<script>
+  // ---- configuration ----
+  const API_BASE = "https://mybrickpass-api.YOUR_WORKER.workers.dev";
+  const VALIDATOR_ID = "VAL100-01"; // set per physical unit
+
+  // ---- state machine ----
+  const states = ["idle", "processing", "approved", "denied", "out-of-service"];
+  let isOutOfService = false;
+
+  function showState(name) {
+    for (const s of states) {
+      document.getElementById(`state-${s}`).classList.toggle("active", s === name);
+    }
+  }
+
+  // Poll our own status periodically. If an admin flips this validator to
+  // out_of_service, the idle screen switches over within one poll interval —
+  // no reboot or redeploy of the kiosk needed.
+  async function pollValidatorStatus() {
+    try {
+      const res = await fetch(`${API_BASE}/validators/${VALIDATOR_ID}/status`);
+      const data = await res.json();
+      isOutOfService = data.status === "out_of_service";
+    } catch (e) {
+      // Network hiccup — keep the last known status rather than flipping states.
+    }
+    // Only touch the screen if we're currently idle/out-of-service (don't
+    // interrupt an in-progress tap/scan result).
+    const current = states.find(s => document.getElementById(`state-${s}`).classList.contains("active"));
+    if (current === "idle" || current === "out-of-service") {
+      showState(isOutOfService ? "out-of-service" : "idle");
+    }
+  }
+  pollValidatorStatus();
+  setInterval(pollValidatorStatus, 30000);
+
+  let resultTimer = null;
+  function showResult(name, { detailText, balanceText } = {}) {
+    clearTimeout(resultTimer);
+    showState(name);
+    if (name === "approved") {
+      document.getElementById("approved-detail").textContent = detailText || "Fare deducted";
+      document.getElementById("approved-balance").textContent = balanceText || "";
+      document.getElementById("approved-balance").style.display = balanceText ? "block" : "none";
+    } else if (name === "denied") {
+      document.getElementById("denied-detail").textContent = detailText || "Please try again";
+    }
+    resultTimer = setTimeout(() => showState("idle"), 3000);
+  }
+
+  const REASON_TEXT = {
+    active_pass: (r) => `${r.fare_type === "week" ? "Weekly" : "Day"} pass — no charge`,
+    fare_deducted: (r) => "One-way fare deducted",
+    transfer: () => "Free transfer — within 2 hours of last fare",
+    free_day: () => "Free fare day — no charge",
+    insufficient_balance: () => "Insufficient balance",
+    unknown_card: () => "Card not recognized",
+    blocked: () => "Card is blocked",
+    lost: () => "Card reported lost",
+    ticket_accepted: (r) => r.rides_remaining > 0 ? "Ticket accepted — 1 ride remaining" : "Ticket accepted",
+    used: () => "Ticket already used",
+    expired: () => "Ticket expired",
+    unknown_ticket: () => "Ticket not recognized",
+    validator_out_of_service: () => "This validator is out of service",
+  };
+
+  // ---- bridge functions: call these from the reader SDK / native shell ----
+  // Wire the HID VAL100's onboard NFC and barcode callbacks to these two
+  // entry points. Everything else on this page is UI only.
+
+  window.onCardTapped = async function (cardNumber) {
+    if (isOutOfService) { showState("out-of-service"); return; }
+    showState("processing");
+    try {
+      const res = await fetch(`${API_BASE}/validate`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ card_number: cardNumber, validator_id: VALIDATOR_ID }),
+      });
+      const data = await res.json();
+      const text = (REASON_TEXT[data.reason] || (() => data.reason))(data);
+      if (data.approved) {
+        const balanceText = "new_balance_cents" in data
+          ? `Balance: $${(data.new_balance_cents / 100).toFixed(2)}`
+          : "";
+        showResult("approved", { detailText: text, balanceText });
+      } else {
+        showResult("denied", { detailText: text });
+      }
+    } catch (e) {
+      showResult("denied", { detailText: "Network error — try again" });
+    }
+  };
+
+  window.onTicketScanned = async function (code) {
+    if (isOutOfService) { showState("out-of-service"); return; }
+    showState("processing");
+    try {
+      const res = await fetch(`${API_BASE}/validate-ticket`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code, validator_id: VALIDATOR_ID }),
+      });
+      const data = await res.json();
+      const text = (REASON_TEXT[data.reason] || (() => data.reason))(data);
+      showResult(data.approved ? "approved" : "denied", { detailText: text });
+    } catch (e) {
+      showResult("denied", { detailText: "Network error — try again" });
+    }
+  };
+
+  // ---- dev/test helpers ----
+  function devTap() { window.onCardTapped(document.getElementById("dev-card").value.trim()); }
+  function devScan() { window.onTicketScanned(document.getElementById("dev-code").value.trim()); }
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "d") document.getElementById("devpanel").classList.toggle("active");
+  });
+</script>
+
+</body>
+</html>
