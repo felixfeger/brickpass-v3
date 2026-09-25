@@ -86,6 +86,35 @@
 
   #google-signin-button { display: flex; justify-content: center; margin-top: 4px; }
 
+  /* Yahoo sign-in widget approximation */
+  .yahoo-signin-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: #7E1FFF;
+    color: #ffffff;
+    border: none;
+    padding: 0 16px;
+    height: 40px;
+    width: 280px;
+    border-radius: 4px;
+    font-family: -apple-system, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    margin: 10px auto 0;
+    transition: background-color 0.2s;
+  }
+  .yahoo-signin-btn:hover {
+    background: #6A18D9;
+  }
+  .yahoo-signin-btn svg {
+    width: 22px;
+    height: 22px;
+    fill: #ffffff;
+  }
+
   /* card list */
   .card-item { border: 1px solid var(--cm-line); border-radius: 10px; padding: 18px; margin-bottom: 14px; }
   .card-item .row { display: flex; justify-content: space-between; align-items: flex-start; }
@@ -150,6 +179,7 @@
     .wallet-row { flex-direction: column; }
     .apple-wallet-btn, .google-wallet-btn { width: 100%; justify-content: center; }
     #google-signin-button > div { width: 100% !important; }
+    .yahoo-signin-btn { width: 100%; }
   }
 </style>
 </head>
@@ -191,7 +221,12 @@
       <button onclick="signInWithSSO()">Sign in with City Metro</button>
       <div class="divider-label">OR</div>
       <div id="google-signin-button"></div>
-      <button class="secondary" style="margin-top:10px" onclick="signInWithYahoo()">Sign in with Yahoo</button>
+      <button class="yahoo-signin-btn" onclick="signInWithYahoo()">
+        <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+          <path d="M410.3 35.8l-159.9 229.5v186.2c0 13.5-11 24.5-24.5 24.5h-15.6c-13.5 0-24.5-11-24.5-24.5V265.4L26.3 35.8C18 24.3 26 8 40.5 8h45.2c9.5 0 18.1 4.9 23 12.9L226 195.8 335.7 20.9c4.9-8 13.5-12.9 23-12.9h59.2c14.6 0 22.8 16.5 14.4 28.1l-22 30.7z M484 227v195c0 13.8-11.2 25-25 25h-16c-13.8 0-25-11.2-25-25V227c0-13.8 11.2-25 25-25h16c13.8 0 25 11.2 25 25zM484 485c0 14.9-12.1 27-27 27h-12c-14.9 0-27-12.1-27-27v-12c0-14.9 12.1-27 27-27h12c14.9 0 27 12.1 27 27v12z"/>
+        </svg>
+        Sign in with Yahoo
+      </button>
     </div>
 
     <div class="panel">
