@@ -191,6 +191,7 @@
       <button onclick="signInWithSSO()">Sign in with City Metro</button>
       <div class="divider-label">OR</div>
       <div id="google-signin-button"></div>
+      <button class="secondary" style="margin-top:10px" onclick="signInWithYahoo()">Sign in with Yahoo</button>
     </div>
 
     <div class="panel">
@@ -309,6 +310,11 @@
       google.accounts.id.renderButton(document.getElementById("google-signin-button"), { theme: "outline", size: "large", width: 280 });
     }
   };
+  function signInWithYahoo() {
+    const returnTo = window.location.origin + window.location.pathname;
+    window.location.href = `${API_BASE}/auth/yahoo/start?return_to=${encodeURIComponent(returnTo)}`;
+  }
+
   async function handleGoogleCredential(response) {
     // response.credential is a Google ID token — our Worker verifies it
     // directly, so we can use it as the bearer token going forward.
