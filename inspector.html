@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MyBrickPass Inspector — City Metro</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root {
+    --cm-black: #14161A; --cm-gray-bg: #F4F5F7; --cm-line: #E1E4E9; --cm-sub: #5B6472;
+    --cm-green: #1E8E5A; --cm-red: #C0392B; --cm-amber: #B8790A;
+    --cm-green-bg: #E9F6EF; --cm-red-bg: #FBEAE8; --cm-amber-bg: #FCF1E0;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Helvetica, Arial, sans-serif; color: var(--cm-black); background: var(--cm-gray-bg); }
+  header { background: var(--cm-black); color: white; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+  header .brand { display: flex; align-items: center; gap: 10px; }
+  header .brand img { width: 28px; height: 28px; border-radius: 6px; background: white; }
+  header .brand .name { font-size: 14px; font-weight: 700; line-height: 1.1; }
+  header .brand .name small { display: block; font-size: 9px; font-weight: 400; color: #9AA3AF; letter-spacing: 0.6px; }
+  header a { color: #C7CDD4; text-decoration: none; font-size: 13px; cursor: pointer; }
+  header a:hover { color: white; }
+  #nav-signout { display: none; }
+
+  main { max-width: 560px; margin: 0 auto; padding: 26px 20px 60px; }
+  .view { display: none; }
+  .view.active { display: block; }
+  h1 { font-size: 19px; margin: 0 0 4px; }
+  p.sub { color: var(--cm-sub); font-size: 13px; margin: 0 0 18px; }
+
+  .panel { background: white; border: 1px solid var(--cm-line); border-radius: 10px; padding: 18px; margin-bottom: 16px; }
+  .panel h2 { font-size: 14px; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab-btn { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--cm-line); background: white; color: var(--cm-sub); font-weight: 600; font-size: 13px; cursor: pointer; }
+  .tab-btn.active { background: var(--cm-black); color: white; border-color: var(--cm-black); }
+
+  label { display: block; font-size: 12px; color: var(--cm-sub); margin: 10px 0 4px; }
+  label:first-child { margin-top: 0; }
+  input, select { width: 100%; padding: 9px 10px; font-size: 14px; border: 1px solid var(--cm-line); border-radius: 6px; font-family: inherit; }
+  button { background: var(--cm-black); color: white; border: none; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 14px; width: 100%; }
+  button:hover { background: #2A2E36; }
+  button.secondary { background: white; color: var(--cm-black); border: 1px solid var(--cm-line); }
+  button.secondary:hover { background: var(--cm-gray-bg); }
+  button.danger { background: var(--cm-red); }
+  button.danger:hover { background: #a52f21; }
+
+  .msg { font-size: 13px; padding: 8px 10px; border-radius: 6px; margin-top: 12px; }
+  .msg.error { background: var(--cm-red-bg); color: var(--cm-red); }
+  .msg.ok { background: var(--cm-green-bg); color: var(--cm-green); }
+
+  #qr-reader { width: 100%; border-radius: 10px; overflow: hidden; margin-top: 10px; display: none; }
+
+  .result-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--cm-line); font-size: 14px; }
+  .result-row:last-child { border-bottom: none; }
+  .result-row .label { color: var(--cm-sub); }
+  .status-pill { font-size: 11px; padding: 3px 9px; border-radius: 999px; font-weight: 600; }
+  .status-pill.active { background: var(--cm-green-bg); color: var(--cm-green); }
+  .status-pill.used, .status-pill.blocked, .status-pill.deactivated, .status-pill.expired { background: var(--cm-red-bg); color: var(--cm-red); }
+  .status-pill.lost { background: var(--cm-amber-bg); color: var(--cm-amber); }
+
+  .txn-item { font-size: 12px; padding: 6px 0; border-bottom: 1px solid var(--cm-line); display: flex; justify-content: space-between; }
+  .txn-item:last-child { border-bottom: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <img src="https://alerts.citymetro.xyz/logo.png" alt="City Metro" />
+    <div class="name">Inspector<small>CITY METRO — STAFF ONLY</small></div>
+  </div>
+  <a id="nav-signout" onclick="signOut()">Sign Out</a>
+</header>
+
+<main>
+
+  <!-- ---------------- SIGN IN ---------------- -->
+  <section id="view-signin" class="view active">
+    <h1>Inspector Sign In</h1>
+    <p class="sub">Sign in with a City Metro account that has admin/inspector access.</p>
+    <div class="panel">
+      <button onclick="signInWithSSO()">Sign in with City Metro SSO</button>
+      <div id="signin-msg"></div>
+    </div>
+  </section>
+
+  <!-- ---------------- MAIN ---------------- -->
+  <section id="view-main" class="view">
+    <h1>Check Fare Payment</h1>
+    <p class="sub">Scan a QR code or enter a number manually. No NFC — cards are checked by number.</p>
+
+    <div class="tabs">
+      <button class="tab-btn active" id="tab-card" onclick="setMode('card')">BrickPass Card</button>
+      <button class="tab-btn" id="tab-ticket" onclick="setMode('ticket')">Ticket</button>
+    </div>
+
+    <div class="panel">
+      <label id="input-label" for="lookup-input">Card number</label>
+      <input id="lookup-input" placeholder="BP3542942903" />
+      <div style="display:flex; gap:8px; margin-top:14px">
+        <button style="margin-top:0" onclick="lookup()">Check</button>
+        <button class="secondary" style="margin-top:0" onclick="toggleScanner()">Scan QR</button>
+      </div>
+      <div id="qr-reader"></div>
+      <div id="lookup-msg"></div>
+    </div>
+
+    <div class="panel" id="result-panel" style="display:none">
+      <h2 id="result-title">Result</h2>
+      <div id="result-body"></div>
+    </div>
+
+    <div class="panel" id="penalty-panel" style="display:none">
+      <h2>Issue a Penalty Fare</h2>
+      <p class="sub" style="margin-bottom:12px">This deducts from the card's balance immediately (balance can go negative) and is always logged, even without a card.</p>
+      <label for="penalty-amount">Amount ($)</label>
+      <input id="penalty-amount" type="number" step="0.01" />
+      <label for="penalty-reason">Reason</label>
+      <input id="penalty-reason" placeholder="e.g. no valid fare, expired pass" />
+      <button class="danger" onclick="issuePenalty()">Issue Penalty Fare</button>
+      <div id="penalty-msg"></div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  const API_BASE = "https://brickpassv3.felixfeger46.workers.dev";
+  const SSO_LOGIN_URL = "https://sso.citymetro.xyz";
+  let session = { token: localStorage.getItem("cm_admin_token") || null };
+  let mode = "card"; // 'card' | 'ticket'
+  let currentLookupValue = null;
+  let qrScanner = null;
+  let scannerOpen = false;
+
+  function signInWithSSO() {
+    const redirect = encodeURIComponent(window.location.origin + window.location.pathname);
+    window.location.href = `${SSO_LOGIN_URL}?redirect=${redirect}`;
+  }
+  async function handleSsoCallback() {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    if (!token) return false;
+    localStorage.setItem("cm_admin_token", token);
+    session.token = token;
+    history.replaceState({}, "", window.location.pathname);
+    return true;
+  }
+  function signOut() {
+    localStorage.removeItem("cm_admin_token");
+    session.token = null;
+    document.getElementById("nav-signout").style.display = "none";
+    document.getElementById("view-signin").classList.add("active");
+    document.getElementById("view-main").classList.remove("active");
+  }
+  async function authedFetch(path, options = {}) {
+    return fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: { "content-type": "application/json", ...(options.headers || {}), ...(session.token ? { authorization: `Bearer ${session.token}` } : {}) },
+    });
+  }
+  async function tryEnterInspector() {
+    const res = await authedFetch("/admin/fares");
+    if (!res.ok) {
+      document.getElementById("signin-msg").innerHTML = `<div class="msg error">This account doesn't have inspector access.</div>`;
+      signOut(); return;
+    }
+    document.getElementById("nav-signout").style.display = "inline";
+    document.getElementById("view-signin").classList.remove("active");
+    document.getElementById("view-main").classList.add("active");
+  }
+
+  function setMode(newMode) {
+    mode = newMode;
+    document.getElementById("tab-card").classList.toggle("active", mode === "card");
+    document.getElementById("tab-ticket").classList.toggle("active", mode === "ticket");
+    document.getElementById("input-label").textContent = mode === "card" ? "Card number" : "Ticket code";
+    document.getElementById("lookup-input").placeholder = mode === "card" ? "BP3542942903" : "A1B2C3D4E5F6G7H8";
+    document.getElementById("result-panel").style.display = "none";
+    document.getElementById("penalty-panel").style.display = "none";
+  }
+
+  // ---- QR scanning ----
+  function toggleScanner() {
+    scannerOpen ? stopScanner() : startScanner();
+  }
+  function startScanner() {
+    const readerEl = document.getElementById("qr-reader");
+    readerEl.style.display = "block";
+    qrScanner = new Html5Qrcode("qr-reader");
+    qrScanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 220 },
+      (decodedText) => {
+        document.getElementById("lookup-input").value = decodedText.trim();
+        stopScanner();
+        lookup();
+      },
+      () => {} // ignore per-frame scan failures
+    ).catch(() => {
+      document.getElementById("lookup-msg").innerHTML = `<div class="msg error">Couldn't access the camera — check browser permissions, or enter the number manually.</div>`;
+      readerEl.style.display = "none";
+    });
+    scannerOpen = true;
+  }
+  function stopScanner() {
+    if (qrScanner) qrScanner.stop().catch(() => {});
+    document.getElementById("qr-reader").style.display = "none";
+    scannerOpen = false;
+  }
+
+  // ---- lookup ----
+  async function lookup() {
+    const value = document.getElementById("lookup-input").value.trim();
+    const msgEl = document.getElementById("lookup-msg");
+    msgEl.innerHTML = "";
+    if (!value) return;
+    currentLookupValue = value;
+
+    if (mode === "card") await lookupCard(value, msgEl);
+    else await lookupTicket(value, msgEl);
+  }
+
+  async function lookupCard(cardNumber, msgEl) {
+    const res = await authedFetch(`/admin/cards/${encodeURIComponent(cardNumber)}`);
+    const data = await res.json();
+    if (!res.ok) { msgEl.innerHTML = `<div class="msg error">${data.error}</div>`; document.getElementById("result-panel").style.display = "none"; return; }
+
+    const c = data.card;
+    const passActive = c.pass_type && c.pass_expires_at * 1000 > Date.now();
+    const lastTap = data.transactions.find(t => t.type === "tap");
+
+    document.getElementById("result-title").textContent = `Card ${c.card_number}`;
+    document.getElementById("result-body").innerHTML = `
+      <div class="result-row"><span class="label">Status</span><span class="status-pill ${c.status}">${c.status}</span></div>
+      <div class="result-row"><span class="label">Balance</span><span>$${(c.balance_cents / 100).toFixed(2)}</span></div>
+      <div class="result-row"><span class="label">Pass</span><span>${passActive ? `${c.pass_type === "week" ? "Weekly" : "Day"} — expires ${new Date(c.pass_expires_at * 1000).toLocaleString()}` : "None active"}</span></div>
+      <div class="result-row"><span class="label">Last tap</span><span>${lastTap ? new Date(lastTap.created_at * 1000).toLocaleString() : "No tap on record"}</span></div>
+      <p class="sub" style="margin:12px 0 6px">Recent activity</p>
+      ${data.transactions.slice(0, 6).map(t => `
+        <div class="txn-item"><span>${t.type} — ${new Date(t.created_at * 1000).toLocaleString()}</span><span>${t.amount_cents >= 0 ? "+" : ""}$${(t.amount_cents / 100).toFixed(2)}</span></div>
+      `).join("") || `<p class="sub">No activity yet.</p>`}
+    `;
+    document.getElementById("result-panel").style.display = "block";
+    await preparePenaltyForm();
+  }
+
+  async function lookupTicket(code, msgEl) {
+    const res = await authedFetch(`/admin/tickets/${encodeURIComponent(code)}`);
+    const data = await res.json();
+    if (!res.ok) { msgEl.innerHTML = `<div class="msg error">${data.error}</div>`; document.getElementById("result-panel").style.display = "none"; return; }
+
+    const t = data.ticket;
+    document.getElementById("result-title").textContent = `Ticket ${t.code}`;
+    document.getElementById("result-body").innerHTML = `
+      <div class="result-row"><span class="label">Type</span><span>${data.type_label}</span></div>
+      <div class="result-row"><span class="label">Status</span><span class="status-pill ${t.status}">${t.status}</span></div>
+      <div class="result-row"><span class="label">Rides remaining</span><span>${t.rides_remaining} / ${t.rides_total}</span></div>
+      <div class="result-row"><span class="label">Purchased</span><span>${new Date(t.purchased_at * 1000).toLocaleString()}</span></div>
+      <div class="result-row"><span class="label">Last used</span><span>${t.last_used_at ? new Date(t.last_used_at * 1000).toLocaleString() : "Never scanned"}</span></div>
+    `;
+    document.getElementById("result-panel").style.display = "block";
+    await preparePenaltyForm();
+  }
+
+  async function preparePenaltyForm() {
+    const res = await authedFetch("/admin/fares");
+    const fares = await res.json();
+    const penalty = fares.find(f => f.fare_type === "penalty");
+    document.getElementById("penalty-amount").value = penalty ? (penalty.price_cents / 100).toFixed(2) : "50.00";
+    document.getElementById("penalty-reason").value = "";
+    document.getElementById("penalty-msg").innerHTML = "";
+    document.getElementById("penalty-panel").style.display = "block";
+  }
+
+  async function issuePenalty() {
+    const dollars = parseFloat(document.getElementById("penalty-amount").value);
+    const reason = document.getElementById("penalty-reason").value.trim();
+    const msgEl = document.getElementById("penalty-msg");
+    if (!dollars || dollars <= 0) { msgEl.innerHTML = `<div class="msg error">Enter a valid amount.</div>`; return; }
+    if (!confirm(`Issue a $${dollars.toFixed(2)} penalty fare${mode === "card" ? ` to ${currentLookupValue}` : ""}?`)) return;
+
+    const body = { amount_cents: Math.round(dollars * 100), reason };
+    if (mode === "card") body.card_number = currentLookupValue;
+    else body.ticket_code = currentLookupValue;
+
+    const res = await authedFetch("/admin/inspect/penalty", { method: "POST", body: JSON.stringify(body) });
+    const data = await res.json();
+    if (!res.ok) { msgEl.innerHTML = `<div class="msg error">${data.error}</div>`; return; }
+    msgEl.innerHTML = `<div class="msg ok">Penalty issued.${data.new_balance_cents !== null ? ` New balance: $${(data.new_balance_cents / 100).toFixed(2)}` : ""}</div>`;
+    if (mode === "card") lookupCard(currentLookupValue, document.getElementById("lookup-msg"));
+  }
+
+  // ---- boot ----
+  (async function init() {
+    await handleSsoCallback();
+    if (session.token) await tryEnterInspector();
+  })();
+</script>
+
+</body>
+</html>
