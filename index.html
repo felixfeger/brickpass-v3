@@ -115,6 +115,22 @@
     display: block;
   }
 
+  .yahoo-logo-mask {
+  display: inline-block;
+  /* Adjust width to maintain the aspect ratio natively based on height */
+  height: 18px;
+  width: 18px; 
+  
+  /* Applies the exact required Yahoo Purple */
+  background-color: #7E1FFF; 
+  
+  /* Uses a trusted CDN for the official brand vector */
+  -webkit-mask: url('https://cdn.jsdelivr.net/npm/simple-icons@v10.0.0/icons/yahoo.svg') no-repeat center;
+  -webkit-mask-size: contain;
+  mask: url('https://cdn.jsdelivr.net/npm/simple-icons@v10.0.0/icons/yahoo.svg') no-repeat center;
+  mask-size: contain;
+}
+
   .rounded-primary {
     background-color: #FFFFFF;
     color: #232A31;
@@ -235,11 +251,11 @@
       
       <!-- New Yahoo Compliant Button -->
       <div class="yahoo-btn-container">
-        <button class="yahoo-btn rounded-primary" type="button" onclick="signInWithYahoo()">
-          <img src="yahoo-logo-purple.svg" alt="Yahoo Logo" class="yahoo-logo" />
-          <span>Sign in with Yahoo</span>
-        </button>
-      </div>
+  <button class="yahoo-btn rounded-primary" type="button" onclick="signInWithYahoo()">
+    <span class="yahoo-logo-mask" aria-hidden="true"></span>
+    <span>Sign in with Yahoo</span>
+  </button>
+</div>
 
     </div>
 
