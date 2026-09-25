@@ -230,6 +230,8 @@
     const c = data.card;
     const passActive = c.pass_type && c.pass_expires_at * 1000 > Date.now();
     const lastTap = data.transactions.find(t => t.type === "tap");
+    const lastPaidTap = data.transactions.find(t => t.type === "tap" && t.amount_cents < 0);
+    const withinTransferWindow = lastPaidTap && (Date.now() / 1000 - lastPaidTap.created_at) <= 7200;
 
     document.getElementById("result-title").textContent = `Card ${c.card_number}`;
     document.getElementById("result-body").innerHTML = `
@@ -237,6 +239,7 @@
       <div class="result-row"><span class="label">Balance</span><span>$${(c.balance_cents / 100).toFixed(2)}</span></div>
       <div class="result-row"><span class="label">Pass</span><span>${passActive ? `${c.pass_type === "week" ? "Weekly" : "Day"} — expires ${new Date(c.pass_expires_at * 1000).toLocaleString()}` : "None active"}</span></div>
       <div class="result-row"><span class="label">Last tap</span><span>${lastTap ? new Date(lastTap.created_at * 1000).toLocaleString() : "No tap on record"}</span></div>
+      <div class="result-row"><span class="label">Transfer window</span><span class="status-pill ${withinTransferWindow ? "active" : "expired"}">${withinTransferWindow ? "Valid — paid within 2 hrs" : "Not covered by a recent fare"}</span></div>
       <p class="sub" style="margin:12px 0 6px">Recent activity</p>
       ${data.transactions.slice(0, 6).map(t => `
         <div class="txn-item"><span>${t.type} — ${new Date(t.created_at * 1000).toLocaleString()}</span><span>${t.amount_cents >= 0 ? "+" : ""}$${(t.amount_cents / 100).toFixed(2)}</span></div>
