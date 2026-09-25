@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>MyBrickPass Inspector — City Metro</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root {
     --cm-black: #14161A; --cm-gray-bg: #F4F5F7; --cm-line: #E1E4E9; --cm-sub: #5B6472;
@@ -81,6 +82,8 @@
     <p class="sub">Sign in with a City Metro account that has admin/inspector access.</p>
     <div class="panel">
       <button onclick="signInWithSSO()">Sign in with City Metro SSO</button>
+      <div style="text-align:center; font-size:11px; color:#9AA3AF; letter-spacing:1px; margin:16px 0">OR</div>
+      <div id="google-signin-button" style="display:flex; justify-content:center"></div>
       <div id="signin-msg"></div>
     </div>
   </section>
@@ -128,7 +131,20 @@
 <script>
   const API_BASE = "https://brickpassv3.felixfeger46.workers.dev";
   const SSO_LOGIN_URL = "https://sso.citymetro.xyz";
+  const GOOGLE_CLIENT_ID = "1053192556643-2q6uutt6h7kouo9r94havjpmtp3f6qoc.apps.googleusercontent.com";
   let session = { token: localStorage.getItem("cm_admin_token") || null };
+
+  window.onload = () => {
+    if (window.google && !GOOGLE_CLIENT_ID.startsWith("YOUR_")) {
+      google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleCredential });
+      google.accounts.id.renderButton(document.getElementById("google-signin-button"), { theme: "outline", size: "large", width: 280 });
+    }
+  };
+  async function handleGoogleCredential(response) {
+    localStorage.setItem("cm_admin_token", response.credential);
+    session.token = response.credential;
+    await tryEnterInspector();
+  }
   let mode = "card"; // 'card' | 'ticket'
   let currentLookupValue = null;
   let qrScanner = null;
