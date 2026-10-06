@@ -86,47 +86,6 @@
 
   #google-signin-button { display: flex; justify-content: center; margin-top: 4px; }
 
-  /* Yahoo Sign-In Button Styles */
-  .yahoo-btn-container {
-    display: flex;
-    justify-content: center;
-    margin-top: 10px;
-  }
-  
-  .yahoo-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 10px 28px 10px 20px; /* Exact padding specs */
-    gap: 8px; /* Exact gap spec */
-    border: none;
-    cursor: pointer;
-    font-family: 'Yahoo Sans', 'Yahoo Sans Semibold', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-    font-weight: 600;
-    font-size: 16px;
-    line-height: 1.5;
-    transition: opacity 0.2s ease, box-shadow 0.2s ease;
-    width: 280px; /* Matches Google button width */
-  }
-
- .yahoo-logo {
-  height: 18px;
-  width: auto;
-  display: block;
-}
-
-
-  .rounded-primary {
-    background-color: #FFFFFF;
-    color: #232A31;
-    border-radius: 100px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.12);
-  }
-  
-  .rounded-primary:hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
-  }
-
   /* card list */
   .card-item { border: 1px solid var(--cm-line); border-radius: 10px; padding: 18px; margin-bottom: 14px; }
   .card-item .row { display: flex; justify-content: space-between; align-items: flex-start; }
@@ -191,7 +150,6 @@
     .wallet-row { flex-direction: column; }
     .apple-wallet-btn, .google-wallet-btn { width: 100%; justify-content: center; }
     #google-signin-button > div { width: 100% !important; }
-    .yahoo-btn { width: 100%; max-width: 280px; }
   }
 </style>
 </head>
@@ -233,15 +191,7 @@
       <button onclick="signInWithSSO()">Sign in with City Metro</button>
       <div class="divider-label">OR</div>
       <div id="google-signin-button"></div>
-      
-    <div class="yahoo-btn-container">
-  <button class="yahoo-btn rounded-primary" type="button" onclick="signInWithYahoo()">
-    <!-- Iconify API guarantees the SVG loads with the exact #7E1FFF hex color -->
-    <img src="https://api.iconify.design/fa6-brands:yahoo.svg?color=%237E1FFF" alt="Yahoo Logo" class="yahoo-logo" />
-    <span>Sign in with Yahoo</span>
-  </button>
-</div>
-
+      <button class="secondary" style="margin-top:10px" onclick="signInWithYahoo()">Sign in with Yahoo</button>
     </div>
 
     <div class="panel">
@@ -312,8 +262,9 @@
 
 <script>
   // ---- configuration ----
+  // Replace this with the public URL of the deployed MyBrickPass Worker.
+  // Example: https://mybrickpass-api.example.workers.dev
   const API_BASE = "https://brickpassv3.felixfeger46.workers.dev";
-  const SSO_LOGIN_URL = "https://sso.citymetro.xyz";
   const GOOGLE_CLIENT_ID = "1053192556643-2q6uutt6h7kouo9r94havjpmtp3f6qoc.apps.googleusercontent.com";
 
   let session = { token: localStorage.getItem("cm_token") || null };
@@ -338,19 +289,15 @@
     el.style.display = el.style.display === "none" ? "block" : "none";
   }
 
-  // ---- City Metro SSO sign-in ----
+  // ---- City Metro / Authentik OIDC sign-in ----
   function signInWithSSO() {
-    const redirect = encodeURIComponent(window.location.origin + window.location.pathname);
-    window.location.href = `${SSO_LOGIN_URL}?redirect=${redirect}`;
-  }
-  async function handleSsoCallback() {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
-    if (!token) return false;
-    localStorage.setItem("cm_token", token);
-    session.token = token;
-    history.replaceState({}, "", window.location.pathname);
-    return true;
+    const returnPath =
+      window.location.pathname +
+      window.location.search +
+      window.location.hash;
+
+    window.location.href =
+      `${API_BASE}/auth/login?return_to=${encodeURIComponent(returnPath)}`;
   }
 
   // ---- Google sign-in ----
@@ -360,8 +307,6 @@
       google.accounts.id.renderButton(document.getElementById("google-signin-button"), { theme: "outline", size: "large", width: 280 });
     }
   };
-  
-  // ---- Yahoo sign-in ----
   function signInWithYahoo() {
     const returnTo = window.location.origin + window.location.pathname;
     window.location.href = `${API_BASE}/auth/yahoo/start?return_to=${encodeURIComponent(returnTo)}`;
@@ -383,7 +328,9 @@
     msgEl.innerHTML = "";
     try {
       const res = await fetch(`${API_BASE}/auth/card-login`, {
-        method: "POST", headers: { "content-type": "application/json" },
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ card_number, pin }),
       });
       const data = await res.json();
@@ -407,30 +354,52 @@
     } catch (e) { resultEl.innerHTML = `<div class="msg error">Couldn't look that up — try again.</div>`; }
   }
 
-  function signOut() {
+  async function signOut() {
     localStorage.removeItem("cm_token");
     session.token = null;
     setAuthedUI(false);
-    go("signin");
+
+    // The Authentik session is an HttpOnly cookie, so the browser must send
+    // the request to the Worker logout endpoint rather than trying to remove
+    // the cookie from JavaScript. The Worker then redirects back to /.
+    window.location.href = `${API_BASE}/auth/logout`;
   }
 
-  async function authedFetch(path, options = {}) {
+  async function authedFetch(path, options = {}, { logoutOn401 = true } = {}) {
     let res;
     try {
       res = await fetch(`${API_BASE}${path}`, {
         ...options,
-        headers: { "content-type": "application/json", ...(options.headers || {}), ...(session.token ? { authorization: `Bearer ${session.token}` } : {}) },
+        credentials: "include",
+        headers: {
+          "content-type": "application/json",
+          ...(options.headers || {}),
+          ...(session.token ? { authorization: `Bearer ${session.token}` } : {}),
+        },
       });
     } catch (networkErr) {
+      // The fetch itself failed (DNS, CORS block, offline, wrong API_BASE) —
+      // this is NOT the same as "not signed in", so don't silently bounce
+      // to the sign-in screen. Surface it plainly instead.
       throw new Error(`NETWORK_ERROR: could not reach ${API_BASE}${path}`);
     }
-    if (res.status === 401) { signOut(); throw new Error("Session expired"); }
+
+    if (res.status === 401 && logoutOn401) {
+      await signOut();
+      throw new Error("Session expired");
+    }
+
     return res;
   }
 
   // ---- dashboard ----
-  async function loadDashboard() {
-    const res = await authedFetch("/me");
+  async function loadDashboard({ initial = false } = {}) {
+    const res = await authedFetch("/me", {}, { logoutOn401: !initial });
+    if (res.status === 401) {
+      setAuthedUI(false);
+      go("signin");
+      return false;
+    }
     const data = await res.json();
     if (!res.ok) throw new Error(`SERVER_ERROR: ${data.error || res.status}`);
     currentCards = data.cards;
@@ -438,6 +407,7 @@
     setAuthedUI(true);
     renderCardList();
     go("dashboard");
+    return true;
   }
 
   function renderCardList() {
@@ -589,32 +559,36 @@
 
   // ---- boot ----
   (async function init() {
-    await handleSsoCallback();
-    if (session.token) {
-      try {
-        await loadDashboard();
-      } catch (e) {
-        const msg = String(e.message);
-        if (msg.startsWith("NETWORK_ERROR")) {
-          document.getElementById("view-loading").innerHTML =
-            `<div class="msg error" style="display:inline-block; text-align:left">
-               Couldn't reach the server at<br><code>${API_BASE}</code><br><br>
-               Check that this matches your deployed Worker's URL, and that it's actually deployed.
-             </div>`;
-          return;
-        }
-        if (msg.startsWith("SERVER_ERROR")) {
-          document.getElementById("view-loading").innerHTML =
-            `<div class="msg error" style="display:inline-block; text-align:left">
-               The server returned an error:<br><code>${msg.replace("SERVER_ERROR: ", "")}</code>
-             </div>`;
-          return;
-        }
-        go("signin"); 
+    try {
+      // Always ask /me on first load so Authentik's HttpOnly session cookie
+      // can authenticate the browser even when there is no localStorage token.
+      const signedIn = await loadDashboard({ initial: true });
+      if (!signedIn) {
+        go("signin");
       }
-    } else {
+    } catch (e) {
+      const msg = String(e.message);
+
+      if (msg.startsWith("NETWORK_ERROR")) {
+        document.getElementById("view-loading").innerHTML =
+          `<div class="msg error" style="display:inline-block; text-align:left">
+             Couldn't reach the server at<br><code>${API_BASE}</code><br><br>
+             Check that this matches your deployed Worker's URL, and that it's actually deployed.
+           </div>`;
+        return;
+      }
+
+      if (msg.startsWith("SERVER_ERROR")) {
+        document.getElementById("view-loading").innerHTML =
+          `<div class="msg error" style="display:inline-block; text-align:left">
+             The server returned an error:<br><code>${msg.replace("SERVER_ERROR: ", "")}</code>
+           </div>`;
+        return;
+      }
+
       go("signin");
     }
+
     loadFares();
   })();
 </script>
